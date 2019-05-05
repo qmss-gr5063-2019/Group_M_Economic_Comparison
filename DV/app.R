@@ -9,17 +9,49 @@
 
 library(shiny)
 library(plotly)
+library(googleVis)
+library(ggthemes)
+library(gganimate)
+library(ggnetwork)
+library(gifski)
+library(tidyverse)
+library(ggraph)
+library(igraph)
+library(intergraph)
+library(ggrepel)
 
 load("gdp.RData")
 load("consumption_share.RData")
 load("map_gdp_final.RData")
+load("gdp_hdi.RData")
+load("gdp_life.RData")
+load("consumption_proportion.RData")
+export_net_new1 <- read.csv("export_net_new1.csv")
+load("GDP_construction.RData")
+load('IMF_rate.RData')
+imf_brazil <- read.csv("imf_brazil.csv")
+imf_china <- read.csv("imf_china.csv")
+imf_india <- read.csv("imf_india.csv")
+imf_russia <- read.csv("imf_russia.csv")
+
 region <- unique(gdp$region)
 segment <- unique(con_sh$Consumption.Segment)
 c_area <- unique(con_sh$Area)
 
 # Define UI for application that draws a histogram
 ui <- navbarPage("Group M",
-   tabPanel("Why GDP"),
+   tabPanel("Why GDP",
+            sidebarLayout(
+              position = "right",
+              sidebarPanel(
+                radioButtons("indicator",
+                             "Relationship between GDP and:",
+                             choices = list("Human Development Index",
+                                            "Life Expectancy"),
+                             selected = "Human Development Index")),
+              mainPanel(htmlOutput("gdp_indicator"))
+              )
+            ),
    tabPanel("Global Situation",
      titlePanel("GDP by Country"),
      sidebarLayout(
@@ -49,18 +81,31 @@ ui <- navbarPage("Group M",
 
    tabPanel("GDP Components",
             titlePanel("Comparison among BRICs"),
-            actionButton("proportion", "%GDP"),
-            actionButton("rate", "GDP Contribution Rate")),
+            sidebarLayout(
+              position = "left",
+              sidebarPanel(
+                radioButtons("component_type", 
+                             "Type of Plot:",
+                             choices = list("Component/GDP %",
+                                            "Contribution Rate of GDP Components"),
+                             selected = "Component/GDP %"
+                ),
+                width = 2
+              ),
+              mainPanel(
+                plotlyOutput("components", height = 600, width = "100%")
+              )
+            )),
    tabPanel("Consumption",
             titlePanel("Comparison among BRICs"),
             sidebarLayout(
-              position = "right",
+              position = "left",
               sidebarPanel(
                 radioButtons("chart_type", 
                              "Type of Chart:",
-                             choices = list("Private vs Public",
+                             choices = list("Household vs Government",
                                             "Household Consumption by industry"),
-                             selected = "Private vs Public"
+                             selected = "Household vs Government"
                              ),
                 selectInput("segment", 
                             label = "Household Consumption Segment:",
@@ -73,16 +118,22 @@ ui <- navbarPage("Group M",
                 width = 2
               ),
               mainPanel(
-                plotlyOutput("Pie_chart")
+                plotlyOutput("Pie_chart", height = 600, width = "110%")
 #                verbatimTextOutput("event")
               )
             )),
    tabPanel("Export",
             tabsetPanel(
-              tabPanel("Scatter Plot"),
-              tabPanel("Trade between BRICs",
+              tabPanel("Net Export of BRICs",
+                       imageOutput("gganim")),
+              tabPanel("Trade Network among BRICs",
                        plotlyOutput("network_4", height = "auto", width = "auto")),
-              tabPanel("Ego Network")
+              tabPanel("Ego Network of BRICs",
+                plotOutput("ego_brazil", height = 600, width = "80%"),
+                       plotOutput("ego_china", height = 600, width = "80%"),
+                       plotOutput("ego_india", height = 600, width = "80%"),
+                       plotOutput("ego_russia", height = 600, width = "80%"))
+                       
             ))
   
 )
@@ -90,6 +141,20 @@ ui <- navbarPage("Group M",
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 #   input_year <- reactive(input$year)
+  output$gdp_indicator <- renderGvis({
+    if (identical(input$indicator, "Human Development Index")) {
+      gvisMotionChart(gdp_hdi, 
+                      idvar="Country", 
+                      timevar="Year")
+      
+    } else{
+      gvisMotionChart(gdp_life, 
+                      idvar="Country", 
+                      timevar="Year")
+    }
+    
+  })
+  
    output$GDP_Rank <- renderPlot({
      gdp <- gdp %>% filter(year <= input$year)
      ggplot(gdp[gdp$region == input$Country, ], aes(x = year, y = rank_rev)) + 
@@ -111,6 +176,26 @@ server <- function(input, output) {
        theme(legend.position = "top", legend.margin = margin(4,6,4,6)) + labs(x = "Longitude", y = "Latitude")
    })
    
+   output$components <- renderPlot({
+     if (identical(input$component_type, "Component/GDP %")) {
+       constplot <- ggplot() +
+       xlab("Year") + ylab("Component/GDP") + ggtitle("GDP Components") 
+     
+     constplot + 
+       geom_bar(data = d, aes(x = year, y = amount, 
+                              fill = factor(type, level = c("consumption", "investment", "export"))), 
+                stat="identity", position=position_stack(0),width=1) + theme_classic()+
+       theme(legend.title=element_blank(), strip.text.x = element_text(size = 14, colour = "black", face = "bold"))+
+       facet_wrap(region~.) +
+       scale_fill_manual(values = c("steelblue4", "Skyblue3", "skyblue1"))
+       
+     } else{
+       Country <- c('China, P.R.: Mainland', 'India', 'Brazil', 'Russian Federation')
+     imf_rate <- filter(IMF_clean_rate, region == Country[1] | region == Country[2] | region == Country[3] | region == Country[4], year >= 1980)
+     ggplot(imf_rate, aes(x = year, y = contribution_rate, color = type)) + geom_line(size = 1) + facet_wrap(region ~ .)}
+   })
+   
+   
    output$Pie_chart <- renderPlotly({
      if(identical(input$chart_type, "Household Consumption by industry")){
        con_sha <- con_sh %>%
@@ -127,7 +212,13 @@ server <- function(input, output) {
                 yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
        p
      } else{
-       
+       ggplot() + geom_line(data = consumption_proportion, 
+                            aes(x=year, y=proportion, color = region), size = 1) + 
+         geom_point(data = consumption_proportion, 
+                    aes(x=year, y=proportion, color = region), size=1, shape=20) +
+         theme_classic() + theme(legend.position = "left") +
+         scale_color_manual(values = c("olivedrab", "firebrick", "darkgoldenrod", "steelblue")) +
+         labs(x = "Year", y = "Household Consumption/GDP %")
      }
      
    })
@@ -176,13 +267,13 @@ server <- function(input, output) {
            #projection = list(type = "equirectangular"),
            coastlinewidth = 2,
            lataxis = list(
-             range = c(-25, 90),
+             range = c(-90, 90),
              showgrid = TRUE,
              tickmode = "linear",
              dtick = 10
            ),
            lonaxis = list(
-             range = c(-60, 130),
+             range = c(-180, 180),
              showgrid = TRUE,
              tickmode = "linear",
              dtick = 20
@@ -190,6 +281,80 @@ server <- function(input, output) {
          )
        )
      p
+   })
+   
+   output$gganim <- renderImage({
+     subset <- export_net_new1 %>%
+       filter(shape == "Target")
+     outfile <- tempfile(fileext='.gif')
+     
+     p1 <- ggplot(export_net_new1, aes(x = Country, y = Net, size = Export)) + 
+       geom_point(aes(shape = shape, color = Region)) + geom_hline(aes(yintercept = 0)) + 
+       transition_manual(Year) + geom_text(data = subset, aes(label = Country)) + 
+       theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
+     anim_save("outfile.gif", animate(p1)) # New
+     
+     # Return a list containing the filename
+     list(src = "outfile.gif",
+          contentType = 'image/gif',
+           width = 1200,
+           height = 800)
+#     animate(p1, duration = 15, "p1.gif")
+   })
+   
+   output$ego_brazil <- renderPlot({
+     brazil <- graph_from_data_frame(imf_brazil, directed = FALSE)
+     V(brazil)$export <- imf_brazil$Export
+     dat4 <- ggnetwork(brazil, layout="fruchtermanreingold", 
+                       arrow.gap=0, cell.jitter=0)
+     dat4_label <- dat4 %>%
+       filter(vertex.names != "Brazil")
+     gg_brazil <- ggplot() + geom_edges(data=dat4, 
+                                        aes(x=x, y=y, xend = xend, yend = yend, size = Export),color = "#0f5600",curvature=0.1,alpha=1/2, type = "closed", show.legend = FALSE) + 
+       geom_nodes(data = dat4, aes(x=x, y=y), size = 3) + theme_blank() + geom_label_repel(data = dat4_label, aes(x=x,y=y, label = vertex.names)) + ggtitle("Ego Network of Brazil's Export") + theme(plot.title = element_text(hjust = 0.5))
+     gg_brazil
+   })
+   
+   output$ego_china <- renderPlot({
+     china <- graph_from_data_frame(imf_china, directed = FALSE)
+     V(china)$export <- imf_china$Export
+     dat2 <- ggnetwork(china, layout="fruchtermanreingold", 
+                       arrow.gap=0, cell.jitter=0)
+     dat2_label <- dat2 %>%
+       filter(vertex.names != "China")
+     gg_china <- ggplot() + geom_edges(data=dat2, 
+                                       aes(x=x, y=y, xend = xend, yend = yend, size = Export),color = "#a00808",curvature=0.1,alpha=1/2, type = "closed", show.legend = FALSE) + 
+       geom_nodes(data = dat2, aes(x=x, y=y), size = 3) + theme_blank() + geom_label_repel(data = dat2_label, aes(x=x,y=y, label = vertex.names)) + ggtitle("Ego Network of China's Export") + theme(plot.title = element_text(hjust = 0.5))
+     gg_china
+   })
+   
+   output$ego_india <- renderPlot({
+     india <- graph_from_data_frame(imf_india, directed = FALSE)
+     V(india)$export <- imf_india$Export
+     dat3 <- ggnetwork(india, layout="fruchtermanreingold", 
+                       arrow.gap=0, cell.jitter=0)
+     dat3
+     dat3$color <- "steelblue"
+     color_india <- c("steelblue") 
+     dat3_label <- dat3 %>%
+       filter(vertex.names != "India")
+     gg_india <- ggplot() + geom_edges(data=dat3, 
+                                       aes(x=x, y=y, xend = xend, yend = yend, size = Export),color = "#c48e05",curvature=0.1,alpha=1/2, type = "closed", show.legend = FALSE) + 
+       geom_nodes(data = dat3, aes(x=x, y=y), size = 3) + theme_blank() + geom_label_repel(data = dat3_label, aes(x=x,y=y, label = vertex.names))+ ggtitle("Ego Network of Inida's Export") + theme(plot.title = element_text(hjust = 0.5))
+     gg_india
+   })
+   
+   output$ego_russia <- renderPlot({
+     russia <- graph_from_data_frame(imf_russia, directed = FALSE)
+     V(russia)$export <- imf_russia$Export
+     dat5 <- ggnetwork(russia, layout="fruchtermanreingold", 
+                       arrow.gap=0, cell.jitter=0)
+     dat5_label <- dat5 %>%
+       filter(vertex.names != "Russia")
+     gg_russia <- ggplot() + geom_edges(data=dat5, 
+                                        aes(x=x, y=y, xend = xend, yend = yend, size = Export),color = "#0893a0",curvature=0.1,alpha=1/2, type = "closed", show.legend = FALSE) + 
+       geom_nodes(data = dat5, aes(x=x, y=y), size = 3) + theme_blank() + geom_label_repel(data = dat5_label, aes(x=x,y=y, label = vertex.names)) + ggtitle("Ego Network of Russia's Export") + theme(plot.title = element_text(hjust = 0.5))
+     gg_russia
    })
 
 }
