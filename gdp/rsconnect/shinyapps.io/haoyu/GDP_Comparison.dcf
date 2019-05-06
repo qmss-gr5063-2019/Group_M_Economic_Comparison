@@ -1,0 +1,12 @@
+name: GDP_Comparison
+title: GDP_Comparison
+username:
+account: haoyu
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 911390
+bundleId: 2062662
+url: https://haoyu.shinyapps.io/GDP_Comparison/
+when: 1557109661.8112
+asMultiple: FALSE
+asStatic: FALSE

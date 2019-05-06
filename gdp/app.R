@@ -71,7 +71,7 @@ ui <- navbarPage("Group M",
          width = 3
          ),
      mainPanel(
-       plotOutput("GDP_map", height = 750, width = "110%")
+       plotOutput("GDP_map", height = 750, width = "100%")
 #        tabsetPanel(
 #          tabPanel("plot", plotOutput("distPlot")),
 #          tabPanel("map")
@@ -80,7 +80,7 @@ ui <- navbarPage("Group M",
       )),
 
    tabPanel("GDP Components",
-            titlePanel("Comparison among BRICs"),
+            titlePanel("GDP Components Compared Among BRICs"),
             sidebarLayout(
               position = "left",
               sidebarPanel(
@@ -93,11 +93,11 @@ ui <- navbarPage("Group M",
                 width = 2
               ),
               mainPanel(
-                plotlyOutput("components", height = 600, width = "100%")
+                plotOutput("components", height = 600, width = "100%")
               )
             )),
    tabPanel("Consumption",
-            titlePanel("Comparison among BRICs"),
+            titlePanel("Consumption of BRICs"),
             sidebarLayout(
               position = "left",
               sidebarPanel(
@@ -129,10 +129,14 @@ ui <- navbarPage("Group M",
               tabPanel("Trade Network among BRICs",
                        plotlyOutput("network_4", height = "auto", width = "auto")),
               tabPanel("Ego Network of BRICs",
-                plotOutput("ego_brazil", height = 600, width = "80%"),
-                       plotOutput("ego_china", height = 600, width = "80%"),
-                       plotOutput("ego_india", height = 600, width = "80%"),
-                       plotOutput("ego_russia", height = 600, width = "80%"))
+                       column(6,
+                          plotOutput("ego_brazil", height = 600, width = "80%"), 
+                          plotOutput("ego_india", height = 600, width = "80%")
+                       ),
+                       column(6,
+                          plotOutput("ego_china", height = 600, width = "80%"), 
+                          plotOutput("ego_russia", height = 600, width = "80%"))
+                       )
                        
             ))
   
@@ -177,23 +181,25 @@ server <- function(input, output) {
    })
    
    output$components <- renderPlot({
-     if (identical(input$component_type, "Component/GDP %")) {
+     if (identical(input$component_type, "Contribution Rate of GDP Components")) {
+       Country <- c('China, P.R.: Mainland', 'India', 'Brazil', 'Russian Federation')
+       imf_rate <- filter(IMF_clean_rate, region == Country[1] | region == Country[2] | region == Country[3] | region == Country[4], year >= 1980)
+       facet_name <- c(`China, P.R.: Mainland` = "China", `Brazil` = "Brazil", `India` = "India", `Russian Federation` = "Russia")
+       ggplot(imf_rate, aes(x = year, y = contribution_rate, color = type)) + geom_line(size = 1) + 
+         facet_wrap(region ~ ., labeller = as_labeller(facet_name)) + theme_classic() +
+         theme(legend.title = element_blank(), strip.text.x = element_text(size = 14, colour = "black", face = "bold"))+
+         scale_color_manual(values = c("steelblue4", "indianred4", "darkolivegreen4"))
+         } else{
        constplot <- ggplot() +
-       xlab("Year") + ylab("Component/GDP") + ggtitle("GDP Components") 
-     
-     constplot + 
+       xlab("Year") + ylab("Component/GDP")
+       constplot + 
        geom_bar(data = d, aes(x = year, y = amount, 
                               fill = factor(type, level = c("consumption", "investment", "export"))), 
-                stat="identity", position=position_stack(0),width=1) + theme_classic()+
-       theme(legend.title=element_blank(), strip.text.x = element_text(size = 14, colour = "black", face = "bold"))+
-       facet_wrap(region~.) +
-       scale_fill_manual(values = c("steelblue4", "Skyblue3", "skyblue1"))
-       
-     } else{
-       Country <- c('China, P.R.: Mainland', 'India', 'Brazil', 'Russian Federation')
-     imf_rate <- filter(IMF_clean_rate, region == Country[1] | region == Country[2] | region == Country[3] | region == Country[4], year >= 1980)
-     ggplot(imf_rate, aes(x = year, y = contribution_rate, color = type)) + geom_line(size = 1) + facet_wrap(region ~ .)}
-   })
+                stat = "identity", position=position_stack(0),width=1) + theme_classic()+
+       theme(legend.title = element_blank(), strip.text.x = element_text(size = 14, colour = "black", face = "bold"))+
+       facet_wrap(region ~.) +
+       scale_fill_manual(values = c("steelblue4", "skyblue3", "lightskyblue2"))}
+     })
    
    
    output$Pie_chart <- renderPlotly({
@@ -291,14 +297,15 @@ server <- function(input, output) {
      p1 <- ggplot(export_net_new1, aes(x = Country, y = Net, size = Export)) + 
        geom_point(aes(shape = shape, color = Region)) + geom_hline(aes(yintercept = 0)) + 
        transition_manual(Year) + geom_text(data = subset, aes(label = Country)) + 
-       theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
+       theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "right", panel.background = element_rect(fill = "white")) +
+       labs(x = "Country", y = "Net Export")
      anim_save("outfile.gif", animate(p1)) # New
      
      # Return a list containing the filename
      list(src = "outfile.gif",
           contentType = 'image/gif',
-           width = 1200,
-           height = 800)
+           width = 1000,
+           height = 600)
 #     animate(p1, duration = 15, "p1.gif")
    })
    
