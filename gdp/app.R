@@ -19,6 +19,9 @@ library(ggraph)
 library(igraph)
 library(intergraph)
 library(ggrepel)
+library(maps)
+library(png)
+
 
 load("gdp.RData")
 load("consumption_share.RData")
@@ -33,14 +36,16 @@ imf_brazil <- read.csv("imf_brazil.csv")
 imf_china <- read.csv("imf_china.csv")
 imf_india <- read.csv("imf_india.csv")
 imf_russia <- read.csv("imf_russia.csv")
-
+export7 <- read.csv("export7.csv")
+#gif <- read_file("net_export.gif")
+gdp$year <- as.integer(gdp$year)
 region <- unique(gdp$region)
 segment <- unique(con_sh$Consumption.Segment)
 c_area <- unique(con_sh$Area)
 
 # Define UI for application that draws a histogram
-ui <- navbarPage("Group M",
-   tabPanel("Why GDP",
+ui <- navbarPage("Group M: What does GDP tell us?",
+   tabPanel("Why We Concern about GDP",
             sidebarLayout(
               position = "right",
               sidebarPanel(
@@ -48,7 +53,8 @@ ui <- navbarPage("Group M",
                              "Relationship between GDP and:",
                              choices = list("Human Development Index",
                                             "Life Expectancy"),
-                             selected = "Human Development Index")),
+                             selected = "Human Development Index"),
+                helpText("Note: Please use standard browsers such as IE to view the plots.")),
               mainPanel(htmlOutput("gdp_indicator"))
               )
             ),
@@ -84,11 +90,12 @@ ui <- navbarPage("Group M",
             sidebarLayout(
               position = "left",
               sidebarPanel(
+                helpText("There are three types of GDP components: Final Consumption, Investment, Net Export"),
                 radioButtons("component_type", 
                              "Type of Plot:",
-                             choices = list("Component/GDP %",
+                             choices = list("Component to GDP Ratio",
                                             "Contribution Rate of GDP Components"),
-                             selected = "Component/GDP %"
+                             selected = "Component to GDP Ratio"
                 ),
                 width = 2
               ),
@@ -101,6 +108,7 @@ ui <- navbarPage("Group M",
             sidebarLayout(
               position = "left",
               sidebarPanel(
+                helpText("Final Consumption can be further divided into household consumption and government consumpion."),
                 radioButtons("chart_type", 
                              "Type of Chart:",
                              choices = list("Household vs Government",
@@ -118,27 +126,67 @@ ui <- navbarPage("Group M",
                 width = 2
               ),
               mainPanel(
-                plotlyOutput("Pie_chart", height = 600, width = "110%")
+                fluidRow(
+                  plotlyOutput("Pie_chart", height = 600, width = "110%")
+                ),
+                fluidRow(),
+                fluidRow(
+                  column(9),
+                  column(3,htmlOutput("text_1")
+                         )
+                )
+                
 #                verbatimTextOutput("event")
               )
             )),
    tabPanel("Export",
             tabsetPanel(
               tabPanel("Net Export of BRICs",
-                       imageOutput("gganim")),
+                       fluidRow(
+                         column(1),
+                         column(11,
+                               textOutput("text_4")                         
+                       ),
+                       fluidRow(
+                         imageOutput("gganim")
+                         )
+                         
+                       )
+                       ),
               tabPanel("Trade Network among BRICs",
-                       plotlyOutput("network_4", height = "auto", width = "auto")),
+                       fluidRow(
+                         plotlyOutput("network_4", height = "auto", width = "auto")
+                       ),
+                       fluidRow(
+                         column(3),
+                         column(9, htmlOutput("text_2"))
+                       )
+                       ),
               tabPanel("Ego Network of BRICs",
-                       column(6,
-                          plotOutput("ego_brazil", height = 600, width = "80%"), 
-                          plotOutput("ego_india", height = 600, width = "80%")
+                       fluidRow(
+                         column(6,
+                          plotOutput("ego_brazil", height = 500, width = "70%"), 
+                          plotOutput("ego_india", height = 500, width = "70%")
                        ),
                        column(6,
-                          plotOutput("ego_china", height = 600, width = "80%"), 
-                          plotOutput("ego_russia", height = 600, width = "80%"))
-                       )
+                          plotOutput("ego_china", height = 500, width = "70%"), 
+                          plotOutput("ego_russia", height = 500, width = "70%"))
+                       ),
+                       fluidRow(
+                         column(3),
+                         column(9,
+                                htmlOutput("text_3")
+                                )
+                         
+                       ))
                        
-            ))
+                       
+            )),
+   tabPanel("More Info",
+     helpText(br(h3("Co-authors: Haoyu Xu, Suxu Wang, Haoxiang Xue, Luoxuan Zhu")),
+              h3(a("Click here to find the data and code", href = "https://github.com/qmss-gr5063-2019/Group_M_Economic_Comparison", target = "_blank")
+     ))
+   )
   
 )
 
@@ -147,14 +195,13 @@ server <- function(input, output) {
 #   input_year <- reactive(input$year)
   output$gdp_indicator <- renderGvis({
     if (identical(input$indicator, "Human Development Index")) {
-      gvisMotionChart(gdp_hdi, 
-                      idvar="Country", 
-                      timevar="Year")
+      gvisMotionChart(gdp_hdi, idvar = "Country", timevar = "Year", options = list(width = 1000, height = 700))
       
     } else{
       gvisMotionChart(gdp_life, 
-                      idvar="Country", 
-                      timevar="Year")
+                      idvar = "Country", 
+                      timevar = "Year",
+                      options = list(width = 1000, height = 700))
     }
     
   })
@@ -173,11 +220,11 @@ server <- function(input, output) {
      mapgdp_randomyear <- map_gdp_final %>% filter(year == input$year)
      mapgdp_randomyear$GDP_level <- cut(mapgdp_randomyear$GDP,
                                         breaks=c(min(mapgdp_randomyear$GDP, na.rm = T),1e10,1e11,1e12, 1e13, max(mapgdp_randomyear$GDP, na.rm = T)), 
-                                        labels=c("<=1e10","1e10-1e11","1e11-1e12","1e12-1e13",">=1e13"),include.lowest=TRUE,order=TRUE)
+                                        labels=c("<=10^10","10^10-10^11","10^11-10^12","10^12-10^13",">=10^13"),include.lowest=TRUE,order=TRUE)
      worldmap <- map_data('world')
      ggplot() + geom_map(data = worldmap, map = worldmap, aes(x = long, y = lat, map_id=region), fill="white", colour="#7f7f7f", size=0.5) +
        geom_map(data = mapgdp_randomyear, map = worldmap, aes(fill = GDP_level, map_id = region)) + scale_fill_brewer() + theme_minimal() +
-       theme(legend.position = "top", legend.margin = margin(4,6,4,6)) + labs(x = "Longitude", y = "Latitude")
+       theme(legend.position = "top", legend.margin = margin(4,6,4,6)) + labs(x = "Longitude", y = "Latitude", fill = "GDP Level", caption = "Source: World Bank Data")
    })
    
    output$components <- renderPlot({
@@ -188,17 +235,18 @@ server <- function(input, output) {
        ggplot(imf_rate, aes(x = year, y = contribution_rate, color = type)) + geom_line(size = 1) + 
          facet_wrap(region ~ ., labeller = as_labeller(facet_name)) + theme_classic() +
          theme(legend.title = element_blank(), strip.text.x = element_text(size = 14, colour = "black", face = "bold"))+
-         scale_color_manual(values = c("steelblue4", "indianred4", "darkolivegreen4"))
+         scale_color_manual(values = c("steelblue4", "darkolivegreen4", "indianred4"), labels = c("Consumption","Net Export", "Investment")) +
+         labs(x = "Year", y = "Contribution Rate of GDP Components", caption = "Source: IMF International Financial Statistics")
          } else{
        constplot <- ggplot() +
-       xlab("Year") + ylab("Component/GDP")
+       xlab("Year") + ylab("Component to GDP Ratio") + labs(caption = "Source: IMF International Financial Statistics")
        constplot + 
        geom_bar(data = d, aes(x = year, y = amount, 
                               fill = factor(type, level = c("consumption", "investment", "export"))), 
                 stat = "identity", position=position_stack(0),width=1) + theme_classic()+
        theme(legend.title = element_blank(), strip.text.x = element_text(size = 14, colour = "black", face = "bold"))+
        facet_wrap(region ~.) +
-       scale_fill_manual(values = c("steelblue4", "skyblue3", "lightskyblue2"))}
+       scale_fill_manual(values = c("steelblue4", "skyblue3", "lightskyblue2"), labels = c("Consumption", "Investment", "Net Export"))}
      })
    
    
@@ -209,22 +257,22 @@ server <- function(input, output) {
          filter(Area == input$c_area)
      
        p <- plot_ly() %>%
-         add_pie(data = filter(con_sha, Country == "India"), labels = ~Sector, values = ~data, name = "India", domain = list(x = c(0, 0.4), y = c(0, 0.4)), marker = list(color = "cyan4")) %>%
-         add_pie(data = filter(con_sha, Country == "China"), labels = ~Sector, values = ~data, name = "China", domain = list(x = c(0, 0.4), y = c(0.6, 1))) %>%
-         add_pie(data = filter(con_sha, Country == "Russian Federation"), labels = ~Sector, values = ~data, name = "Russian Federation", domain = list(x = c(0.6, 1), y = c(0, 0.4))) %>%
-         add_pie(data = filter(con_sha, Country == "Brazil"), labels = ~Sector, values = ~data, name = "Brazil", domain = list(x = c(0.6, 1), y = c(0.6, 1))) %>%
-         layout(title = "World Bank Data by 2010", showlegend = T,
+         add_pie(data = filter(con_sha, Country == "India"), labels = ~Sector, values = ~round(data,2), name = "India", domain = list(x = c(0, 0.4), y = c(0, 0.4)), hoverinfo = "name+label+value") %>%
+         add_pie(data = filter(con_sha, Country == "China"), labels = ~Sector, values = ~round(data,2), name = "China", domain = list(x = c(0, 0.4), y = c(0.6, 1)), hoverinfo = "name+label+value") %>%
+         add_pie(data = filter(con_sha, Country == "Russian Federation"), labels = ~Sector, values = ~round(data,2), name = "Russia", domain = list(x = c(0.6, 1), y = c(0, 0.4)), hoverinfo = "name+label+value") %>%
+         add_pie(data = filter(con_sha, Country == "Brazil"), labels = ~Sector, values = ~round(data,2), name = "Brazil", domain = list(x = c(0.6, 1), y = c(0.6, 1)), hoverinfo = "name+label+value") %>%
+         layout(showlegend = T,
                 xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
                 yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
        p
      } else{
        ggplot() + geom_line(data = consumption_proportion, 
-                            aes(x=year, y=proportion, color = region), size = 1) + 
+                            aes(x = year, y = proportion, color = region), size = 1) + 
          geom_point(data = consumption_proportion, 
-                    aes(x=year, y=proportion, color = region), size=1, shape=20) +
+                    aes(x = year, y = proportion, color = region), size = 1, shape = 20) +
          theme_classic() + theme(legend.position = "left") +
          scale_color_manual(values = c("olivedrab", "firebrick", "darkgoldenrod", "steelblue")) +
-         labs(x = "Year", y = "Household Consumption/GDP %")
+         labs(x = "Year", y = "Household Consumption to Final Consumption Ratio", color = "Country", caption = "Source: IMF International Financial Statistics")
      }
      
    })
@@ -290,16 +338,16 @@ server <- function(input, output) {
    })
    
    output$gganim <- renderImage({
-     subset <- export_net_new1 %>%
+     subset <- export7 %>%
        filter(shape == "Target")
      outfile <- tempfile(fileext='.gif')
      
-     p1 <- ggplot(export_net_new1, aes(x = Country, y = Net, size = Export)) + 
+     p1 <- ggplot(export7, aes(x = Country, y = Net, size = Export)) + 
        geom_point(aes(shape = shape, color = Region)) + geom_hline(aes(yintercept = 0)) + 
        transition_manual(Year) + geom_text(data = subset, aes(label = Country)) + 
        theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "right", panel.background = element_rect(fill = "white")) +
        labs(x = "Country", y = "Net Export")
-     anim_save("outfile.gif", animate(p1)) # New
+     anim_save("outfile.gif", animate(p1, duration = 15)) # New
      
      # Return a list containing the filename
      list(src = "outfile.gif",
@@ -307,7 +355,10 @@ server <- function(input, output) {
            width = 1000,
            height = 600)
 #     animate(p1, duration = 15, "p1.gif")
-   })
+#     list(src = gif, contentType = 'image/gif', width = 1000, height = 600)
+   }, deleteFile = TRUE)
+   
+   t
    
    output$ego_brazil <- renderPlot({
      brazil <- graph_from_data_frame(imf_brazil, directed = FALSE)
@@ -363,7 +414,30 @@ server <- function(input, output) {
        geom_nodes(data = dat5, aes(x=x, y=y), size = 3) + theme_blank() + geom_label_repel(data = dat5_label, aes(x=x,y=y, label = vertex.names)) + ggtitle("Ego Network of Russia's Export") + theme(plot.title = element_text(hjust = 0.5))
      gg_russia
    })
-
+   
+   output$text_1 <- renderUI({
+     if (identical(input$chart_type, "Household Consumption by industry")){
+       HTML(paste("Source: World Bank Data by 2010","From left to right and top to bottom:", "China Brazil India Russia", sep = "<br/>"))
+   } else {
+     HTML(paste("Source: IMF IFS"))
+   }
+   })
+   output$text_2 <- renderUI({
+     HTML(paste("Source: International Monetary Fund, Direction of Trade Statistics (DOT), 1948 - 2018",
+                "Selection Criteria: Goods, Value of Exports, Free on board (FOB), US Dollars",
+                "Nodes Color:",
+                "  China: Red  Russia: Blue  Brazil: Green  India: Brown",
+                "Edge Color:",
+                "  Export: Consistent with nodes",
+                "  Import: Other colors", sep = "<br/>" ))
+   })
+   output$text_3 <- renderUI({
+     HTML(paste("Source: International Monetary Fund, Direction of Trade Statistics (DOT), 1948 - 2018", 
+                "Selection Criteria: Goods, Value of Exports, Free on board (FOB), US Dollars", sep = "<br/>"))
+   })
+   output$text_4 <- renderText({
+     "Source: World Bank, Exports of goods and services (current US$), 1960-2017"
+   })
 }
 
 # Run the application 

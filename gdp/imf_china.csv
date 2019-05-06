@@ -1,9 +1,11 @@
 Source,Target,Export
+China,USA,4.80689E+11
 China,Japan,1.47565E+11
 China,Vietnam,84222789310
 China,Germany,78154624120
 China,India,77023158370
 China,Netherlands,73288722720
+China,UK,57291285040
 China,Singapore,50089792010
 China,Russia,48073660520
 China,Australia,47646836240
@@ -43,5 +45,3 @@ China,Ukraine,7042728640
 China,Panama,6977810790
 China,Greece,6572270810
 China,Hungary,6553210240
-China,Cambodia,6034030960
-China,New Zealand,5813553850
