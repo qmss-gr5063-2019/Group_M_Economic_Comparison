@@ -38,13 +38,14 @@ imf_india <- read.csv("imf_india.csv")
 imf_russia <- read.csv("imf_russia.csv")
 export7 <- read.csv("export7.csv")
 #gif <- read_file("net_export.gif")
+gdp[which(is.na(gdp$GDP)), "rank_rev"] <- NA
 gdp$year <- as.integer(gdp$year)
 region <- unique(gdp$region)
 segment <- unique(con_sh$Consumption.Segment)
 c_area <- unique(con_sh$Area)
 
 # Define UI for application that draws a histogram
-ui <- navbarPage("Group M: What does GDP tell us?",
+ui <- navbarPage("Group M: Economic Growth in BRICs",
    tabPanel("Why We Concern about GDP",
             sidebarLayout(
               position = "right",
@@ -423,7 +424,7 @@ server <- function(input, output) {
    }
    })
    output$text_2 <- renderUI({
-     HTML(paste("Source: International Monetary Fund, Direction of Trade Statistics (DOT), 1948 - 2018",
+     HTML(paste("Source: International Monetary Fund, Direction of Trade Statistics (DOT), 2018",
                 "Selection Criteria: Goods, Value of Exports, Free on board (FOB), US Dollars",
                 "Nodes Color:",
                 "  China: Red  Russia: Blue  Brazil: Green  India: Brown",

@@ -5,8 +5,8 @@ account: haoyu
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 911390
-bundleId: 2063237
+bundleId: 2064609
 url: https://haoyu.shinyapps.io/GDP_Comparison/
-when: 1557129671.93874
+when: 1557170573.60839
 asMultiple: FALSE
 asStatic: FALSE
